@@ -8,7 +8,7 @@
 		"build": "vite build",
 		"start": "vite preview --port 3000",
 		"preview": "vite preview --port 3000",
-		"postbuild": "node scripts/generate-index.js"
+		"postbuild": "node scripts/generate-index.cjs"
 	},
 	"dependencies": {
 		"@auth/core": "^0.37.2",
