@@ -4,7 +4,10 @@
 	"type": "module",
 	"scripts": {
 		"dev": "react-router dev",
-		"typecheck": "react-router typegen && tsc --noEmit"
+		"typecheck": "react-router typegen && tsc --noEmit",
+		"build": "vite build",
+		"start": "vite preview --port 3000",
+		"preview": "vite preview --port 3000"
 	},
 	"dependencies": {
 		"@auth/core": "^0.37.2",
