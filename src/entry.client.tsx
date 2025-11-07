@@ -1,24 +1,18 @@
 // src/entry.client.tsx
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import App from "./App"; // or your top-level route component
-// OR import your routes array if you already created one
-// import routes from "./routes";
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    // children: [...] // add nested routes if you have them
-  },
-]);
+import { BrowserRouter } from "react-router-dom";
+import App from "./app/root"; // make sure this path & casing match your file
 
 const rootEl = document.getElementById("root");
-if (!rootEl) throw new Error("No #root element found in index.html");
+if (!rootEl) {
+  throw new Error('No #root element found in index.html. Add <div id="root"></div>');
+}
 
 createRoot(rootEl).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );
