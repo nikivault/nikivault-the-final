@@ -1,3 +1,4 @@
+// --- imports (replace original ones that referenced 'react-router') ---
 import {
   Links,
   Meta,
@@ -7,7 +8,8 @@ import {
   useAsyncError,
   useLocation,
   useRouteError,
-} from 'react-router';
+  useNavigate,
+} from 'react-router-dom';
 
 import { useButton } from '@react-aria/button';
 import {
@@ -24,7 +26,6 @@ import './global.css';
 import fetch from '@/__create/fetch';
 // @ts-ignore
 import { SessionProvider } from '@auth/create/react';
-import { useNavigate } from 'react-router';
 import { serializeError } from 'serialize-error';
 import { Toaster } from 'sonner';
 // @ts-ignore
@@ -228,7 +229,7 @@ export const ClientOnly: React.FC<ClientOnlyProps> = ({ loader }) => {
  * useHmrConnection()
  * ------------------
  * • `true`  → HMR socket is healthy
- * • `false` → socket lost (Vite is polling / may auto‑reload soon)
+ * • `false` → socket lost (Vite is polling / may auto-reload soon)
  *
  * Works only in dev; in prod it always returns `true`.
  */
@@ -241,13 +242,13 @@ export function useHmrConnection(): boolean {
 
     /** Fired the moment the WS closes unexpectedly */
     const onDisconnect = () => setConnected(false);
-    /** Fired every time the WS (re‑)opens */
+    /** Fired every time the WS (re-)opens */
     const onConnect = () => setConnected(true);
 
     import.meta.hot.on('vite:ws:disconnect', onDisconnect);
     import.meta.hot.on('vite:ws:connect', onConnect);
 
-    // Optional: catch the “about to full‑reload” event as a last resort
+    // Optional: catch the “about to full-reload” event as a last resort
     const onFullReload = () => setConnected(false);
     import.meta.hot.on('vite:beforeFullReload', onFullReload);
 
@@ -389,10 +390,22 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-export default function App() {
+export function App() {
   return (
     <SessionProvider>
       <Outlet />
     </SessionProvider>
+  );
+}
+
+/**
+ * Export a top-level Root component (default) that composes the document shell
+ * (Layout) with the app (App). This is what the client entry expects.
+ */
+export default function Root() {
+  return (
+    <Layout>
+      <App />
+    </Layout>
   );
 }
