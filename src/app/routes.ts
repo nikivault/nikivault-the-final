@@ -5,7 +5,7 @@ import {
 	type RouteConfigEntry,
 	index,
 	route,
-} from '@react-router/fs-routes';
+} from '@react-router/dev/routes';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -117,4 +117,3 @@ const notFound = route('*?', './__create/not-found.tsx');
 const routes = [...generateRoutes(tree), notFound];
 
 export default routes;
-
