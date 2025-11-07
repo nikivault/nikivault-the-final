@@ -1,120 +1,107 @@
+/// <reference types="vite/client" />
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-	type RouteConfigEntry,
-	index,
-	route,
-} from './routes-shim';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 type Tree = {
-	path: string;
-	children: Tree[];
-	hasPage: boolean;
-	isParam: boolean;
-	paramName: string;
-	isCatchAll: boolean;
+  path: string;
+  children: Tree[];
+  hasPage: boolean;
+  isParam: boolean;
+  paramName: string;
+  isCatchAll: boolean;
 };
 
 function buildRouteTree(dir: string, basePath = ''): Tree {
-	const files = readdirSync(dir);
-	const node: Tree = {
-		path: basePath,
-		children: [],
-		hasPage: false,
-		isParam: false,
-		isCatchAll: false,
-		paramName: '',
-	};
+  const files = readdirSync(dir);
+  const node: Tree = {
+    path: basePath,
+    children: [],
+    hasPage: false,
+    isParam: false,
+    isCatchAll: false,
+    paramName: '',
+  };
 
-	// Check if the current directory name indicates a parameter
-	const dirName = basePath.split('/').pop();
-	if (dirName?.startsWith('[') && dirName.endsWith(']')) {
-		node.isParam = true;
-		const paramName = dirName.slice(1, -1);
-
-		// Check if it's a catch-all parameter (e.g., [...ids])
-		if (paramName.startsWith('...')) {
-			node.isCatchAll = true;
-			node.paramName = paramName.slice(3); // Remove the '...' prefix
-		} else {
-			node.paramName = paramName;
-		}
-	}
-
-	for (const file of files) {
-		const filePath = join(dir, file);
-		const stat = statSync(filePath);
-
-		if (stat.isDirectory()) {
-			const childPath = basePath ? `${basePath}/${file}` : file;
-			const childNode = buildRouteTree(filePath, childPath);
-			node.children.push(childNode);
-		} else if (file === 'page.jsx') {
-			node.hasPage = true;
+  const dirName = basePath.split('/').pop();
+  if (dirName?.startsWith('[') && dirName.endsWith(']')) {
+    node.isParam = true;
+    const paramName = dirName.slice(1, -1);
+    if (paramName.startsWith('...')) {
+      node.isCatchAll = true;
+      node.paramName = paramName.slice(3);
+    } else {
+      node.paramName = paramName;
     }
-	}
+  }
 
-	return node;
+  for (const file of files) {
+    const filePath = join(dir, file);
+    const stat = statSync(filePath);
+    if (stat.isDirectory()) {
+      const childPath = basePath ? `${basePath}/${file}` : file;
+      node.children.push(buildRouteTree(filePath, childPath));
+    } else if (file === 'page.jsx' || file === 'page.tsx' || file === 'page.ts' || file === 'page.jsx') {
+      node.hasPage = true;
+    }
+  }
+  return node;
 }
 
-function generateRoutes(node: Tree): RouteConfigEntry[] {
-	const routes: RouteConfigEntry[] = [];
-
-	if (node.hasPage) {
-		const componentPath =
-			node.path === '' ? `./${node.path}page.jsx` : `./${node.path}/page.jsx`;
-
-		if (node.path === '') {
-			routes.push(index(componentPath));
-		} else {
-			// Handle parameter routes
-			let routePath = node.path;
-
-			// Replace all parameter segments in the path
-			const segments = routePath.split('/');
-			const processedSegments = segments.map((segment) => {
-				if (segment.startsWith('[') && segment.endsWith(']')) {
-					const paramName = segment.slice(1, -1);
-
-					// Handle catch-all parameters (e.g., [...ids] becomes *)
-					if (paramName.startsWith('...')) {
-						return '*'; // React Router's catch-all syntax
-					}
-					// Handle optional parameters (e.g., [[id]] becomes :id?)
-					if (paramName.startsWith('[') && paramName.endsWith(']')) {
-						return `:${paramName.slice(1, -1)}?`;
-					}
-					// Handle regular parameters (e.g., [id] becomes :id)
-					return `:${paramName}`;
-				}
-				return segment;
-			});
-
-			routePath = processedSegments.join('/');
-			routes.push(route(routePath, componentPath));
-		}
-	}
-
-	for (const child of node.children) {
-		routes.push(...generateRoutes(child));
-	}
-
-	return routes;
+function componentFilePath(p: string) {
+  return p === '' ? `./page.jsx` : `./${p}/page.jsx`;
 }
+
+function segmentToPath(segment: string) {
+  if (segment.startsWith('[') && segment.endsWith(']')) {
+    const name = segment.slice(1, -1);
+    if (name.startsWith('...')) return '*';
+    if (name.startsWith('[') && name.endsWith(']')) return `:${name.slice(1, -1)}?`;
+    return `:${name}`;
+  }
+  return segment;
+}
+
+/**
+ * Produce objects expected by @react-router/dev / fs-routes plugin:
+ * { index?: true, path?: string, file: './.../page.jsx' }
+ * Use `any` to avoid strict RouteObject typing here.
+ */
+function generateRoutes(node: Tree): any[] {
+  const out: any[] = [];
+
+  if (node.hasPage) {
+    const file = componentFilePath(node.path);
+    if (node.path === '') {
+      out.push({ index: true, file });
+    } else {
+      const segments = node.path.split('/');
+      const processed = segments.map(segmentToPath).join('/');
+      out.push({ path: processed, file });
+    }
+  }
+
+  for (const child of node.children) out.push(...generateRoutes(child));
+  return out;
+}
+
 if (import.meta.env.DEV) {
-	import.meta.glob('./**/page.jsx', {});
-	if (import.meta.hot) {
-		import.meta.hot.accept((newSelf) => {
-			import.meta.hot?.invalidate();
-		});
-	}
+  // keep dev glob for HMR awareness
+  import.meta.glob('./**/page.jsx', {});
+  if (import.meta.hot) {
+    import.meta.hot.accept(() => {
+      import.meta.hot?.invalidate();
+    });
+  }
 }
+
 const tree = buildRouteTree(__dirname);
-const notFound = route('*?', './__create/not-found.tsx');
-const routes = [...generateRoutes(tree), notFound];
+const routes = [...generateRoutes(tree)];
 
-export default routes;
+// add not-found file
+routes.push({ path: '*', file: './__create/not-found.tsx' });
 
+// export as any to match expected plugin shape
+export default routes as any;
